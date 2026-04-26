@@ -15,7 +15,21 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
+        <!-- Skip jOOQ codegen by default; sources are committed to src/main/generated.
+             Override with -Djooq.codegen.skip=false or use the codegen profile. -->
+        <jooq.codegen.skip>true</jooq.codegen.skip>
     </properties>
+
+    <profiles>
+        <profile>
+            <!-- Run with: mvn generate-sources -Pcodegen
+                 Requires a live PostgreSQL connection at localhost:5432/handycapper. -->
+            <id>codegen</id>
+            <properties>
+                <jooq.codegen.skip>false</jooq.codegen.skip>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <!-- Parsing -->
@@ -25,18 +39,11 @@
             <version>2.0.0-SNAPSHOT</version>
         </dependency>
 
-        <!-- jOOQ (must match version used to generate handycapper domain classes) -->
+        <!-- jOOQ — generated from live PostgreSQL schema via jooq-codegen-maven -->
         <dependency>
             <groupId>org.jooq</groupId>
             <artifactId>jooq</artifactId>
-            <version>3.10.7</version>
-        </dependency>
-
-        <!-- javax.annotation for @Generated on jOOQ 3.10 generated code -->
-        <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-            <version>1.3.2</version>
+            <version>3.19.10</version>
         </dependency>
 
         <!-- PostgreSQL -->
@@ -100,6 +107,72 @@
 
     <build>
         <plugins>
+            <!-- Adds src/main/generated as a compile source root.
+                 The jOOQ-generated classes live here and are committed to version control.
+                 To regenerate: mvn generate-sources -Pcodegen (requires a live PostgreSQL connection). -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-generated-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>add-source</goal></goals>
+                        <configuration>
+                            <sources>
+                                <source>src/main/generated</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- jOOQ codegen: generates domain classes from live PostgreSQL schema.
+                 Skipped by default — sources are committed to src/main/generated.
+                 To regenerate: mvn generate-sources -Pcodegen -->
+            <plugin>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq-codegen-maven</artifactId>
+                <version>3.19.10</version>
+                <executions>
+                    <execution>
+                        <goals><goal>generate</goal></goals>
+                        <configuration>
+                            <skip>${jooq.codegen.skip}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jdbc>
+                        <driver>org.postgresql.Driver</driver>
+                        <url>jdbc:postgresql://localhost:5432/handycapper</url>
+                        <user>handycapper</user>
+                        <password>handycapper</password>
+                    </jdbc>
+                    <generator>
+                        <database>
+                            <name>org.jooq.meta.postgres.PostgresDatabase</name>
+                            <inputSchema>handycapper</inputSchema>
+                        </database>
+                        <generate>
+                            <records>true</records>
+                            <deprecated>false</deprecated>
+                        </generate>
+                        <target>
+                            <packageName>com.robinhowlett.handycapper.domain</packageName>
+                            <directory>src/main/generated</directory>
+                        </target>
+                    </generator>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>42.7.3</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

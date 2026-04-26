@@ -8,7 +8,7 @@ import java.nio.file.Path;
 public record ImportResult(Path pdf, Status status, int racesLoaded, Exception cause) {
 
     public enum Status {
-        SUCCESS, PARSE_FAILED, WRITE_FAILED
+        SUCCESS, PARSE_FAILED, WRITE_FAILED, UNIMPORTABLE
     }
 
     public static ImportResult success(Path pdf, int racesLoaded) {

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -39,6 +40,14 @@ public class PdfImporter {
     private static final Logger log = LoggerFactory.getLogger(PdfImporter.class);
 
     public static void main(String[] args) throws Exception {
+        // Suppress PDFBox JUL warnings (font fallbacks etc.) — they bypass Logback.
+        // Must silence both the logger level AND each handler's level; JUL checks both.
+        java.util.logging.Logger rootJul = java.util.logging.Logger.getLogger("");
+        rootJul.setLevel(java.util.logging.Level.SEVERE);
+        for (java.util.logging.Handler h : rootJul.getHandlers()) {
+            h.setLevel(java.util.logging.Level.SEVERE);
+        }
+
         Path sourceDir = args.length > 0
                 ? Path.of(args[0])
                 : Path.of(System.getProperty("user.home"), "horseracing");
@@ -68,10 +77,13 @@ public class PdfImporter {
             var failed  = new AtomicInteger();
             long start  = System.currentTimeMillis();
 
-            // Virtual threads: one per PDF. JVM schedules them over CPU carrier threads.
-            // Yielding during I/O (PostgreSQL writes) keeps CPUs busy with parsing.
+            // Semaphore caps concurrent PDFs in memory — without it all 200K tasks submit at
+            // once and PDFBox's per-PDF heap usage causes OOM. Virtual threads park on acquire()
+            // rather than blocking a carrier thread, so this adds no CPU overhead.
+            var semaphore = new Semaphore(config.threadCount());
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 for (Path pdf : files) {
+                    semaphore.acquire();
                     executor.submit(() -> {
                         try {
                             var parsed = parser.parse(pdf);
@@ -97,6 +109,8 @@ public class PdfImporter {
                             tracker.recordFailure(pdf, Status.WRITE_FAILED, e);
                             failed.incrementAndGet();
                             log.error("Unexpected error for {}: {}", pdf.getFileName(), e.getMessage());
+                        } finally {
+                            semaphore.release();
                         }
                         printProgress(success, failed, files.size(), start);
                     });

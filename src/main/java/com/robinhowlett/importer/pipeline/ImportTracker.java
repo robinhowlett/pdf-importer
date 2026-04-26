@@ -58,7 +58,8 @@ public class ImportTracker implements AutoCloseable {
             ps.setString(1, pdf.toAbsolutePath().toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return "SUCCESS".equals(rs.getString(1));
+                    String status = rs.getString(1);
+                    return "SUCCESS".equals(status) || "UNIMPORTABLE".equals(status);
                 }
             }
         } catch (SQLException e) {
