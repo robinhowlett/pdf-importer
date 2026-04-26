@@ -20,23 +20,12 @@ jobs:
           java-version: "21"
           distribution: temurin
           cache: maven
-
-      - name: Configure GitHub Packages auth
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'SETTINGS'
-          <settings>
-            <servers>
-              <server>
-                <id>github</id>
-                <username>${env.GITHUB_ACTOR}</username>
-                <password>${env.GITHUB_TOKEN}</password>
-              </server>
-            </servers>
-          </settings>
-          SETTINGS
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
 
       - name: Build pdf-importer (skip jOOQ codegen — sources are committed)
         run: mvn verify -Djooq.codegen.skip=true -DskipTests -B
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
