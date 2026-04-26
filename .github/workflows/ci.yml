@@ -8,27 +8,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
     steps:
-      - name: Check out pdf-importer
-        uses: actions/checkout@v4
-
-      - name: Check out chart-parser (SNAPSHOT dependency)
-        uses: actions/checkout@v4
-        with:
-          repository: robinhowlett/chart-parser
-          ref: modernize
-          path: chart-parser
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
           java-version: "21"
-          distribution: "temurin"
-          cache: "maven"
-
-      - name: Install chart-parser locally
-        run: mvn install -DskipTests -B -P '!build-extras'
-        working-directory: chart-parser
+          distribution: temurin
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
 
       - name: Build pdf-importer (skip jOOQ codegen — sources are committed)
         run: mvn verify -Djooq.codegen.skip=true -DskipTests -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
