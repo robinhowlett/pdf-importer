@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
 
     steps:
       - uses: actions/checkout@v4
@@ -27,5 +26,5 @@ jobs:
       - name: Build pdf-importer (skip jOOQ codegen — sources are committed)
         run: mvn verify -Djooq.codegen.skip=true -DskipTests -B
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
