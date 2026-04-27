@@ -1,2 +1,0 @@
-CREATE SCHEMA IF NOT EXISTS handycapper;
-SET SEARCH_PATH TO handycapper;
