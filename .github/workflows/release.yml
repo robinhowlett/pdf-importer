@@ -42,7 +42,14 @@ jobs:
           </settings>
           SETTINGS
 
-      - name: Build and deploy to GitHub Packages
+      - name: Build fat JAR
+        run: mvn package -Djooq.codegen.skip=true -DskipTests -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+
+      - name: Deploy to GitHub Packages
+        continue-on-error: true
         run: mvn deploy -Djooq.codegen.skip=true -DskipTests -B -DaltDeploymentRepository=github-publish::https://maven.pkg.github.com/robinhowlett/pdf-importer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
