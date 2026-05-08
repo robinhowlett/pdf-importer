@@ -1,11 +1,12 @@
-name: Publish SNAPSHOT
+name: Release to GitHub Packages
 
 on:
   push:
-    branches: [master]
+    tags:
+      - "v*"
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,7 +25,7 @@ jobs:
       - name: Configure Maven settings
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << 'SETTINGS'
           <settings>
             <servers>
               <server>
@@ -39,9 +40,9 @@ jobs:
               </server>
             </servers>
           </settings>
-          EOF
+          SETTINGS
 
-      - name: Publish SNAPSHOT to GitHub Packages
+      - name: Deploy to GitHub Packages
         run: mvn deploy -Djooq.codegen.skip=true -DskipTests -B -DaltDeploymentRepository=github-publish::https://maven.pkg.github.com/robinhowlett/pdf-importer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
