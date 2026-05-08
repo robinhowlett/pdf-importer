@@ -14,7 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Check if SNAPSHOT
+        id: check
+        run: |
+          VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-java@v5
+        if: steps.check.outputs.skip != 'true'
         with:
           java-version: "21"
           distribution: temurin
@@ -22,9 +32,10 @@ jobs:
           overwrite-settings: false
 
       - name: Configure Maven settings
+        if: steps.check.outputs.skip != 'true'
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << 'SETTINGS'
           <settings>
             <servers>
               <server>
@@ -39,9 +50,10 @@ jobs:
               </server>
             </servers>
           </settings>
-          EOF
+          SETTINGS
 
       - name: Publish SNAPSHOT to GitHub Packages
+        if: steps.check.outputs.skip != 'true'
         run: mvn deploy -Djooq.codegen.skip=true -DskipTests -B -DaltDeploymentRepository=github-publish::https://maven.pkg.github.com/robinhowlett/pdf-importer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
