@@ -19,7 +19,7 @@ jobs:
         run: |
           VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+          if [[ "$VERSION" != *.SNAPSHOT ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
