@@ -7,42 +7,50 @@ modern workstation.
 
 ## Quick Start (Docker)
 
-The fastest path: Docker Compose starts a pre-configured PostgreSQL instance with the
-schema already applied.
+The easiest path if you don't have PostgreSQL installed. Docker runs PostgreSQL in an
+isolated container — no installation or configuration needed beyond Docker itself.
 
-**Prerequisites:** Docker, Java 21+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Mac/Windows) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux), Java 21+
 
 ```bash
-# 1. Start the database (runs on localhost:5433)
+# 1. Start the database in the background (-d = detached)
+#    Listens on localhost:5433 to avoid clashing with any locally installed Postgres
 docker compose up -d
 
 # 2. Download the latest fat JAR from Releases and run it
 java -Xmx4g -jar pdf-importer-1.1.0.RELEASE.jar /path/to/your/pdfs
 ```
 
-That's it. The importer connects to `localhost:5433/handycapper` by default, matching
-the database that Docker Compose just started.
+That's it. The importer's default `IMPORTER_JDBC_URL` is `localhost:5433/handycapper`,
+which matches exactly what Docker Compose starts. No environment variables needed.
 
-To stop the database:
+Progress is tracked in `~/import-progress.db` (SQLite). Re-running the same command
+after an interruption will skip already-processed files automatically.
+
+When you're done:
 ```bash
-docker compose down          # keeps data volume
-docker compose down -v       # also removes data
+docker compose down          # stop the container, keep your data
+docker compose down -v       # stop the container and delete all data
 ```
 
 ## Quick Start (Existing PostgreSQL)
 
-If you already have a PostgreSQL instance, apply the schema and run:
+If you already have a PostgreSQL instance running on the standard port (5432), apply
+the schema once and override the connection URL:
 
 ```bash
 # Apply schema (once)
-psql -U handycapper -d handycapper -f db/schema.sql
+psql -U myuser -d mydatabase -f db/schema.sql
 
-# Run the importer
-IMPORTER_JDBC_URL=jdbc:postgresql://myhost:5432/handycapper \
+# Run the importer — note port 5432 (not 5433, which is the Docker default)
+IMPORTER_JDBC_URL=jdbc:postgresql://localhost:5432/mydatabase \
 IMPORTER_DB_USER=myuser \
 IMPORTER_DB_PASSWORD=mypassword \
 java -Xmx4g -jar pdf-importer-1.1.0.RELEASE.jar /path/to/your/pdfs
 ```
+
+Progress is tracked in `~/import-progress.db`. Re-running after an interruption skips
+already-processed files automatically.
 
 ## Building from Source
 
