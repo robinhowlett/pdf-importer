@@ -7,13 +7,14 @@ modern workstation.
 
 ## Quick Start (Docker)
 
-The fastest path: Docker Compose starts a pre-configured PostgreSQL instance with the
-schema already applied.
+The easiest path if you don't have PostgreSQL installed. Docker runs PostgreSQL in an
+isolated container — no installation or configuration needed beyond Docker itself.
 
-**Prerequisites:** Docker, Java 21+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Mac/Windows) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux), Java 21+
 
 ```bash
-# 1. Start the database — listens on localhost:5433 (avoids clashing with any local Postgres)
+# 1. Start the database in the background (-d = detached)
+#    Listens on localhost:5433 to avoid clashing with any locally installed Postgres
 docker compose up -d
 
 # 2. Download the latest fat JAR from Releases and run it
@@ -26,10 +27,10 @@ which matches exactly what Docker Compose starts. No environment variables neede
 Progress is tracked in `~/import-progress.db` (SQLite). Re-running the same command
 after an interruption will skip already-processed files automatically.
 
-To stop the database:
+When you're done:
 ```bash
-docker compose down          # keeps data volume
-docker compose down -v       # also removes data
+docker compose down          # stop the container, keep your data
+docker compose down -v       # stop the container and delete all data
 ```
 
 ## Quick Start (Existing PostgreSQL)
