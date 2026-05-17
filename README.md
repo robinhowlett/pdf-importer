@@ -13,15 +13,18 @@ schema already applied.
 **Prerequisites:** Docker, Java 21+
 
 ```bash
-# 1. Start the database (runs on localhost:5433)
+# 1. Start the database — listens on localhost:5433 (avoids clashing with any local Postgres)
 docker compose up -d
 
 # 2. Download the latest fat JAR from Releases and run it
 java -Xmx4g -jar pdf-importer-1.1.0.RELEASE.jar /path/to/your/pdfs
 ```
 
-That's it. The importer connects to `localhost:5433/handycapper` by default, matching
-the database that Docker Compose just started.
+That's it. The importer's default `IMPORTER_JDBC_URL` is `localhost:5433/handycapper`,
+which matches exactly what Docker Compose starts. No environment variables needed.
+
+Progress is tracked in `~/import-progress.db` (SQLite). Re-running the same command
+after an interruption will skip already-processed files automatically.
 
 To stop the database:
 ```bash
@@ -31,18 +34,22 @@ docker compose down -v       # also removes data
 
 ## Quick Start (Existing PostgreSQL)
 
-If you already have a PostgreSQL instance, apply the schema and run:
+If you already have a PostgreSQL instance running on the standard port (5432), apply
+the schema once and override the connection URL:
 
 ```bash
 # Apply schema (once)
-psql -U handycapper -d handycapper -f db/schema.sql
+psql -U myuser -d mydatabase -f db/schema.sql
 
-# Run the importer
-IMPORTER_JDBC_URL=jdbc:postgresql://myhost:5432/handycapper \
+# Run the importer — note port 5432 (not 5433, which is the Docker default)
+IMPORTER_JDBC_URL=jdbc:postgresql://localhost:5432/mydatabase \
 IMPORTER_DB_USER=myuser \
 IMPORTER_DB_PASSWORD=mypassword \
 java -Xmx4g -jar pdf-importer-1.1.0.RELEASE.jar /path/to/your/pdfs
 ```
+
+Progress is tracked in `~/import-progress.db`. Re-running after an interruption skips
+already-processed files automatically.
 
 ## Building from Source
 
