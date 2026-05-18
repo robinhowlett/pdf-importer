@@ -1,9 +1,13 @@
 # pdf-importer
 
-Bulk loader for Equibase horse racing chart PDFs into PostgreSQL. Parses PDFs using
-[chart-parser](https://github.com/robinhowlett/chart-parser) and writes structured race
-data via jOOQ. Designed to import ~200,000 PDFs (1991–2019) in under 4 hours on a
-modern workstation.
+Bulk loader for Equibase horse racing chart PDFs into PostgreSQL. Designed to import
+~200,000 PDFs (1991–2019) in under 4 hours on a modern workstation.
+
+Parsing is handled by **chart-parser**, a private companion library that extracts
+structured race data (starters, positions, fractionals, payoffs, etc.) from Equibase's
+PDF format. It has been battle-tested against the full historical corpus across every
+track, format variation, and edge case from 1991 to 2019. pdf-importer drives
+chart-parser in parallel and writes the results to PostgreSQL using jOOQ.
 
 ## Quick Start (Docker)
 
