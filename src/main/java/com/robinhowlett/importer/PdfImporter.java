@@ -48,13 +48,14 @@ public class PdfImporter {
             h.setLevel(java.util.logging.Level.SEVERE);
         }
 
-        Path sourceDir = args.length > 0
-                ? Path.of(args[0])
-                : Path.of(System.getProperty("user.home"), "horseracing");
+        List<Path> roots = args.length > 0
+                ? java.util.Arrays.stream(args).map(Path::of).toList()
+                : List.of(Path.of(System.getProperty("user.home"), "horseracing"));
 
-        ImportConfig config = ImportConfig.fromEnvironment(sourceDir);
+        // Use the first root for config resolution (progress DB location etc.)
+        ImportConfig config = ImportConfig.fromEnvironment(roots.get(0));
 
-        log.info("Source:  {}", config.sourceDir());
+        log.info("Sources: {}", roots);
         log.info("DB:      {}", config.jdbcUrl());
         log.info("Threads: {}", config.threadCount());
 
@@ -65,7 +66,7 @@ public class PdfImporter {
             var parser  = new PdfParser();
             var writer  = new RaceWriter(pool.getDataSource());
 
-            List<Path> files = scanner.scan(sourceDir, tracker);
+            List<Path> files = scanner.scan(roots, tracker);
             System.out.printf("Found %,d unprocessed PDFs%n", files.size());
 
             if (files.isEmpty()) {
