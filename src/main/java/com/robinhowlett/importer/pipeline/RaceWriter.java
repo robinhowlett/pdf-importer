@@ -216,8 +216,10 @@ public class RaceWriter {
                 step.set(RACES.RESTRICTIONS, restr.getCode())
                     .set(RACES.MIN_AGE, toShort(restr.getMinAge()))
                     .set(RACES.MAX_AGE, toShort(restr.getMaxAge()))
+                    .set(RACES.AGE_CODE, restr.getAgeCode())
                     .set(RACES.SEXES, toShort(restr.getSexes()))
                     .set(RACES.SEXES_CODE, restr.getSexesCode())
+                    .set(RACES.FEMALE_ONLY, restr.isFemaleOnly())
                     .set(RACES.STATE_BRED, restr.isStateBred());
             }
         }
@@ -228,6 +230,7 @@ public class RaceWriter {
                 .set(RACES.COURSE, dst.getCourse())
                 .set(RACES.SCHEDULED_SURFACE, dst.getScheduledSurface())
                 .set(RACES.SCHEDULED_COURSE, dst.getScheduledCourse())
+                .set(RACES.OFF_TURF, dst.isOffTurf())
                 .set(RACES.FORMAT, dst.getFormat())
                 .set(RACES.TRACK_CONDITION, dst.getTrackCondition());
 
