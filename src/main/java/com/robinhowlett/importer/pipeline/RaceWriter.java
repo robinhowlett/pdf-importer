@@ -130,6 +130,10 @@ public class RaceWriter {
             return;
         }
 
+        // A previous run may have classified this race as cancelled.
+        // Remove the cancelled row so the two tables stay disjoint.
+        deleteCancelled(tx, r);
+
         RacesRecord race = upsertRace(tx, r);
         long raceId = race.getId();
 
@@ -292,6 +296,11 @@ public class RaceWriter {
     private void writeCancelled(DSLContext tx, RaceResult r) {
         Cancellation c = r.getCancellation();
         Track track = r.getTrack();
+
+        // A previous run may have classified this race as run.
+        // Remove the races row (FK CASCADE clears all child tables)
+        // so the two tables stay disjoint.
+        deleteRace(tx, r);
 
         var step = tx.insertInto(CANCELLED)
                 .set(CANCELLED.DATE, r.getRaceDate())
@@ -678,6 +687,31 @@ public class RaceWriter {
               .set(WPS.ODDS, toBigDecimal(wager.getOdds()))
               .execute();
         }
+    }
+
+    private void deleteCancelled(DSLContext tx, RaceResult r) {
+        Track track = r.getTrack();
+        if (track == null || r.getRaceDate() == null || r.getRaceNumber() == null) {
+            return;
+        }
+        tx.deleteFrom(CANCELLED)
+          .where(CANCELLED.DATE.eq(r.getRaceDate()))
+          .and(CANCELLED.TRACK.eq(track.getCode()))
+          .and(CANCELLED.NUMBER.eq(toShort(r.getRaceNumber())))
+          .execute();
+    }
+
+    private void deleteRace(DSLContext tx, RaceResult r) {
+        Track track = r.getTrack();
+        if (track == null || r.getRaceDate() == null || r.getRaceNumber() == null) {
+            return;
+        }
+        // FK ON DELETE CASCADE clears all child tables for the race row.
+        tx.deleteFrom(RACES)
+          .where(RACES.DATE.eq(r.getRaceDate()))
+          .and(RACES.TRACK.eq(track.getCode()))
+          .and(RACES.NUMBER.eq(toShort(r.getRaceNumber())))
+          .execute();
     }
 
     /** Safely converts Integer/int to Short for smallint columns. Returns null if input is null. */

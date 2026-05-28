@@ -1,6 +1,8 @@
 package com.robinhowlett.importer;
 
+import com.robinhowlett.chartparser.charts.pdf.Cancellation;
 import com.robinhowlett.chartparser.charts.pdf.RaceResult;
+import com.robinhowlett.chartparser.tracks.Track;
 import com.robinhowlett.importer.model.ImportResult;
 import com.robinhowlett.importer.pipeline.PdfParser;
 import com.robinhowlett.importer.pipeline.RaceWriter;
@@ -20,6 +22,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.robinhowlett.handycapper.domain.tables.Cancelled.CANCELLED;
 import static com.robinhowlett.handycapper.domain.tables.Races.RACES;
 import static com.robinhowlett.handycapper.domain.tables.Starters.STARTERS;
 import static org.junit.jupiter.api.Assertions.*;
@@ -112,6 +115,40 @@ class RaceWriterTest {
         assertEquals(9, dsl.fetchCount(RACES),
                 "Row count must be the same after second write — no duplicates");
         assertTrue(dsl.fetchCount(STARTERS) >= 45);
+    }
+
+    @Test
+    void write_RaceFlipsBetweenCancelledAndRun_KeepsTablesDisjoint() {
+        var writer = new RaceWriter(dataSource);
+
+        Track track = new Track();
+        track.setCode("ARP");
+        track.setCanonical("ARP");
+        track.setCountry("USA");
+        track.setName("Arapahoe Park");
+
+        var raceDate = java.time.LocalDate.of(2016, 7, 24);
+        var raceNumber = 99;
+
+        var cancelled = new RaceResult(new Cancellation("weather"), raceDate, track, raceNumber);
+        var run       = new RaceResult(null, raceDate, track, raceNumber);
+
+        // Step 1: cancelled run lands in cancelled
+        writer.write(SAMPLE_PDF, List.of(cancelled));
+        assertEquals(1, dsl.fetchCount(CANCELLED));
+        assertEquals(0, dsl.fetchCount(RACES));
+
+        // Step 2: same key now classified as run — cancelled row must go away
+        writer.write(SAMPLE_PDF, List.of(run));
+        assertEquals(0, dsl.fetchCount(CANCELLED),
+                "cancelled row must be removed when race is reclassified as run");
+        assertEquals(1, dsl.fetchCount(RACES));
+
+        // Step 3: flip back to cancelled — races row (and its CASCADE children) must go away
+        writer.write(SAMPLE_PDF, List.of(cancelled));
+        assertEquals(1, dsl.fetchCount(CANCELLED));
+        assertEquals(0, dsl.fetchCount(RACES),
+                "races row must be removed when race is reclassified as cancelled");
     }
 
     @Test
