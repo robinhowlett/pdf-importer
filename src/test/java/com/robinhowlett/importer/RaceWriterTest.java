@@ -118,6 +118,50 @@ class RaceWriterTest {
     }
 
     @Test
+    void write_ReimportPropagatesChangedNonKeyColumn() {
+        // IMP-T5.1: a re-import must overwrite ALL non-key columns on the
+        // existing race row, not just the legacy 6-column subset that the
+        // pre-fix doUpdate enumerated. Verifies the audit's named bug:
+        // off_turf / female_only / age_code etc. used to silently retain
+        // stale values from the original import.
+        var writer = new RaceWriter(dataSource);
+        writer.write(SAMPLE_PDF, sampleResults);
+
+        // Simulate a stale row by mutating fields the OLD doUpdate would
+        // never have touched: surface, off_turf, conditions, post_time,
+        // weather, plus track_record_holder. These all live on RACES but
+        // none of them was in the legacy 6-column doUpdate.
+        int updated = dsl.execute(
+                "UPDATE handycapper.races SET "
+                + "surface = 'STALE', off_turf = true, conditions = 'STALE_TEXT', "
+                + "post_time = 'STALE_TIME', weather = 'STALE_WX', "
+                + "track_record_holder = 'STALE_HOLDER', female_only = NOT female_only, "
+                + "age_code = 'STALE_CODE'");
+        assertTrue(updated > 0, "Must have stale rows to re-write over");
+
+        // Re-import: with the new delete-then-insert strategy, every column
+        // is rewritten from the parsed RaceResult.
+        var second = writer.write(SAMPLE_PDF, sampleResults);
+        assertTrue(second.isSuccess());
+
+        Integer staleSurface = dsl.fetchCount(RACES, RACES.SURFACE.eq("STALE"));
+        Integer staleOffTurf = dsl.fetchCount(RACES, RACES.CONDITIONS.eq("STALE_TEXT"));
+        Integer staleHolder  = dsl.fetchCount(RACES, RACES.TRACK_RECORD_HOLDER.eq("STALE_HOLDER"));
+        Integer stalePostTime = dsl.fetchCount(RACES, RACES.POST_TIME.eq("STALE_TIME"));
+        Integer staleWeather  = dsl.fetchCount(RACES, RACES.WEATHER.eq("STALE_WX"));
+        Integer staleAgeCode  = dsl.fetchCount(RACES, RACES.AGE_CODE.eq("STALE_CODE"));
+        assertEquals(0, staleSurface, "surface must be rewritten on re-import");
+        assertEquals(0, staleOffTurf, "conditions must be rewritten on re-import");
+        assertEquals(0, staleHolder,  "track_record_holder must be rewritten on re-import");
+        assertEquals(0, stalePostTime, "post_time must be rewritten on re-import");
+        assertEquals(0, staleWeather,  "weather must be rewritten on re-import");
+        assertEquals(0, staleAgeCode,  "age_code must be rewritten on re-import");
+
+        // Sanity: row count unchanged (re-import is in-place replacement).
+        assertEquals(9, dsl.fetchCount(RACES));
+    }
+
+    @Test
     void write_RaceFlipsBetweenCancelledAndRun_KeepsTablesDisjoint() {
         var writer = new RaceWriter(dataSource);
 

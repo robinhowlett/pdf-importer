@@ -134,18 +134,23 @@ public class RaceWriter {
         // Remove the cancelled row so the two tables stay disjoint.
         deleteCancelled(tx, r);
 
-        RacesRecord race = upsertRace(tx, r);
+        // IMP-T5.1: delete-then-insert (instead of upsert with a partial
+        // doUpdate that silently retained stale values for ~50 columns).
+        // The race-level FK CASCADE clears all child tables (starters and
+        // their grandchildren, scratches, fractionals, splits, exotics,
+        // ratings) so we don't have to delete them explicitly.
+        //
+        // The downstream rkm_* tables reference races(id) with ON DELETE
+        // NO ACTION, so this delete will FK-block loudly if rkm analytics
+        // have already been computed for this race. That's the correct
+        // signal: a chart-parser bug fix re-import implies derived RKM
+        // values are now stale and need recomputation. Pre-RKM re-imports
+        // (the common case for chart-parser bug fixes) succeed cleanly.
+        deleteRace(tx, r);
+        RacesRecord race = buildRaceInsert(tx, r)
+                .returning(RACES.ID)
+                .fetchOne();
         long raceId = race.getId();
-
-        // Delete and re-insert child rows for idempotency
-        tx.deleteFrom(SCRATCHES).where(SCRATCHES.RACE_ID.eq(raceId)).execute();
-        tx.deleteFrom(FRACTIONALS).where(FRACTIONALS.RACE_ID.eq(raceId)).execute();
-        tx.deleteFrom(SPLITS).where(SPLITS.RACE_ID.eq(raceId)).execute();
-        tx.deleteFrom(EXOTICS).where(EXOTICS.RACE_ID.eq(raceId)).execute();
-        tx.deleteFrom(RATINGS).where(RATINGS.RACE_ID.eq(raceId)).execute();
-        // Cascade: deleting starters also removes poc, indiv_fractionals, indiv_splits,
-        // meds, equip, breeding, wps, indiv_ratings
-        tx.deleteFrom(STARTERS).where(STARTERS.RACE_ID.eq(raceId)).execute();
 
         writeScratches(tx, r.getScratches(), raceId);
         writeFractionals(tx, r.getFractionals(), raceId);
@@ -153,20 +158,6 @@ public class RaceWriter {
         writeExotics(tx, r, raceId);
         writeRaceRatings(tx, r.getRatings(), raceId);
         writeStarters(tx, r.getStarters(), raceId);
-    }
-
-    private RacesRecord upsertRace(DSLContext tx, RaceResult r) {
-        return buildRaceInsert(tx, r)
-                .onConflictOnConstraint(DSL.name("uq_races_date_track_number"))
-                .doUpdate()
-                .set(RACES.TRACK_NAME, r.getTrack() != null ? r.getTrack().getName() : null)
-                .set(RACES.FINAL_TIME, r.getFinalTime())
-                .set(RACES.FINAL_MILLIS, r.getFinalMillis())
-                .set(RACES.DEAD_HEAT, r.isDeadHeat())
-                .set(RACES.NUMBER_OF_RUNNERS, toShort(r.getNumberOfRunners()))
-                .set(RACES.FOOTNOTES, r.getFootnotes())
-                .returning(RACES.ID)
-                .fetchOne();
     }
 
     private InsertSetMoreStep<RacesRecord> buildRaceInsert(DSLContext tx, RaceResult r) {
