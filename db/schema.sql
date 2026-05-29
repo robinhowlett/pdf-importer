@@ -66,7 +66,8 @@ CREATE TABLE handycapper.races
   start_comments      text,
   timer               varchar(15),
   dead_heat           boolean,
-  number_of_runners   smallint,
+  number_of_runners   smallint,                -- physical horses; counts 1 and 1A separately
+  number_of_wagering_interests smallint,       -- distinct entry_programs; collapses coupled entries
   final_time          varchar(15),
   final_millis        bigint,
   total_wps_pool      bigint,

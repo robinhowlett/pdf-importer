@@ -100,6 +100,17 @@ class RaceWriterTest {
         int starterCount = dsl.fetchCount(STARTERS);
         assertTrue(starterCount >= 45,
                 "Should have at least 45 starters (9 races × ~8 starters), got " + starterCount);
+
+        // IMP-T5.5: every race got a wagering-interests count populated. The
+        // ARP 2016-07-24 card has no coupled entries, so for this card it
+        // should equal number_of_runners on every race.
+        Integer mismatched = dsl.fetchOne(
+                "SELECT count(*) FROM handycapper.races r "
+                + "WHERE r.number_of_wagering_interests IS NULL "
+                + "   OR r.number_of_wagering_interests <> r.number_of_runners")
+                .into(Integer.class);
+        assertEquals(0, mismatched,
+                "On the no-coupled-entry ARP card, NWI must equal NoR for every race");
     }
 
     @Test

@@ -269,6 +269,14 @@ public class RaceWriter {
 
         step.set(RACES.DEAD_HEAT, r.isDeadHeat())
             .set(RACES.NUMBER_OF_RUNNERS, toShort(r.getNumberOfRunners()))
+            // IMP-T5.5: number_of_wagering_interests collapses coupled
+            // entries (1 + 1A → 1) and field entries that share the same
+            // entry_program. Used for pool-dynamics-aware metrics where
+            // physical-horse count over-states the field. Column is added
+            // by V7 migration; reference via DSL.field() to avoid
+            // re-running jOOQ codegen until the next planned regen pass.
+            .set(DSL.field("number_of_wagering_interests", Short.class),
+                 toShort(countWageringInterests(r.getStarters())))
             .set(RACES.FINAL_TIME, r.getFinalTime())
             .set(RACES.FINAL_MILLIS, r.getFinalMillis())
             .set(RACES.FOOTNOTES, r.getFootnotes());
@@ -703,6 +711,25 @@ public class RaceWriter {
           .and(RACES.TRACK.eq(track.getCode()))
           .and(RACES.NUMBER.eq(toShort(r.getRaceNumber())))
           .execute();
+    }
+
+    /**
+     * Count of distinct {@code entry_program} values among the starters —
+     * i.e., the number of distinct wagering interests in the race.
+     * Coupled entries (1 and 1A) and field entries (1, 1X, 1Y) share an
+     * {@code entry_program} and collapse to one interest.
+     * Null/empty starters return 0; starters with a null entryProgram
+     * are skipped.
+     */
+    static int countWageringInterests(List<Starter> starters) {
+        if (starters == null || starters.isEmpty()) {
+            return 0;
+        }
+        return (int) starters.stream()
+                .map(Starter::getEntryProgram)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .count();
     }
 
     /** Safely converts Integer/int to Short for smallint columns. Returns null if input is null. */
