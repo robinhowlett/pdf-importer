@@ -73,8 +73,10 @@ public class ImportTracker implements AutoCloseable {
     }
 
     public synchronized void recordFailure(Path pdf, ImportResult.Status status, Exception e) {
-        upsert(pdf.toAbsolutePath().toString(), status.name(), 0,
-                e.getClass().getName(), truncate(e.getMessage(), 500));
+        // e may be null when classifying a zero-race success as UNIMPORTABLE.
+        String errorType = (e != null) ? e.getClass().getName() : null;
+        String errorMessage = (e != null) ? truncate(e.getMessage(), 500) : null;
+        upsert(pdf.toAbsolutePath().toString(), status.name(), 0, errorType, errorMessage);
     }
 
     private void upsert(String path, String status, int racesLoaded,

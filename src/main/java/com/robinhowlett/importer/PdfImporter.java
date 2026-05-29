@@ -6,6 +6,7 @@ import com.robinhowlett.importer.pipeline.ImportTracker;
 import com.robinhowlett.importer.pipeline.PdfParser;
 import com.robinhowlett.importer.pipeline.PdfScanner;
 import com.robinhowlett.importer.pipeline.RaceWriter;
+import com.robinhowlett.importer.pipeline.UnimportableClassifier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,13 +90,28 @@ public class PdfImporter {
                         try {
                             var parsed = parser.parse(pdf);
                             if (parsed instanceof PdfParser.ParseOutcome.Failure f) {
-                                tracker.recordFailure(pdf, Status.PARSE_FAILED, f.cause());
+                                Status classified = UnimportableClassifier
+                                        .classifyParseFailure(pdf, f.cause());
+                                tracker.recordFailure(pdf, classified, f.cause());
                                 failed.incrementAndGet();
-                                log.warn("PARSE_FAILED {}: {}", pdf.getFileName(),
+                                log.warn("{} {}: {}", classified, pdf.getFileName(),
                                         f.cause().getMessage());
                                 return;
                             }
                             var results = ((PdfParser.ParseOutcome.Success) parsed).results();
+                            // IMP-T5.3: a successful parse with zero races is a known
+                            // unimportable shape (e.g., OldChartFormat where the
+                            // chart-parser silently swallowed per-race exceptions).
+                            // Mark UNIMPORTABLE so PdfScanner skips it on next run.
+                            if (results.isEmpty()) {
+                                Status classified = UnimportableClassifier
+                                        .classifyZeroRaceSuccess(pdf);
+                                tracker.recordFailure(pdf, classified, null);
+                                failed.incrementAndGet();
+                                log.warn("{} {}: parse produced 0 races",
+                                        classified, pdf.getFileName());
+                                return;
+                            }
                             var outcome = writer.write(pdf, results);
                             if (outcome.isSuccess()) {
                                 tracker.recordSuccess(pdf, outcome.racesLoaded());

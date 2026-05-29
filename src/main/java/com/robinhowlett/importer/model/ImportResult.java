@@ -19,6 +19,10 @@ public record ImportResult(Path pdf, Status status, int racesLoaded, Exception c
         return new ImportResult(pdf, Status.PARSE_FAILED, 0, cause);
     }
 
+    public static ImportResult unimportable(Path pdf, Exception cause) {
+        return new ImportResult(pdf, Status.UNIMPORTABLE, 0, cause);
+    }
+
     public static ImportResult writeFailed(Path pdf, Exception cause) {
         return new ImportResult(pdf, Status.WRITE_FAILED, 0, cause);
     }
