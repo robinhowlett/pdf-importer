@@ -23,8 +23,46 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
+      # CI-debug 2026-05-29: probe the GH Packages URLs Maven would hit, so
+      # we can distinguish auth failures from SNAPSHOT-alias 404s. Remove
+      # once the resolution issue is understood and pinned.
+      - name: Debug GH Packages resolution
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          BASE="https://maven.pkg.github.com/robinhowlett/chart-parser/com/robinhowlett/chart-parser"
+          AUTH="-u ${ACTOR}:${GH_PACKAGES_TOKEN}"
+          echo "=== Cat the settings.xml setup-java wrote ==="
+          test -f ~/.m2/settings.xml && cat ~/.m2/settings.xml || echo "NO settings.xml"
+          echo
+          for path in \
+            "2.1.0.SNAPSHOT/maven-metadata.xml" \
+            "2.1.0.SNAPSHOT/chart-parser-2.1.0.SNAPSHOT.pom" \
+            "2.1.0.SNAPSHOT/chart-parser-2.1.0.SNAPSHOT.jar" \
+            "maven-metadata.xml"
+          do
+            url="$BASE/$path"
+            echo "--- $path ---"
+            # Show status + content-type only; suppress bodies (some are large).
+            curl -sSL -o /dev/null -w "HTTP %{http_code} type=%{content_type} size=%{size_download}\n" \
+                 $AUTH "$url" || true
+          done
+          echo
+          echo "=== List timestamped artifact (latest published was 2026-05-29 03:44) ==="
+          # The publish log uploaded "2.1.0.20260529.034440-1.{pom,jar}".
+          for path in \
+            "2.1.0.SNAPSHOT/chart-parser-2.1.0.20260529.034440-1.pom" \
+            "2.1.0.SNAPSHOT/chart-parser-2.1.0.20260529.034440-1.jar"
+          do
+            url="$BASE/$path"
+            echo "--- $path ---"
+            curl -sSL -o /dev/null -w "HTTP %{http_code} type=%{content_type} size=%{size_download}\n" \
+                 $AUTH "$url" || true
+          done
+
       - name: Build pdf-importer (skip jOOQ codegen — sources are committed)
-        run: mvn verify -Djooq.codegen.skip=true -DskipTests -B
+        run: mvn verify -Djooq.codegen.skip=true -DskipTests -B -X
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
