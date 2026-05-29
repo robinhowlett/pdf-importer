@@ -49,17 +49,19 @@ jobs:
                  $AUTH "$url" || true
           done
           echo
-          echo "=== List timestamped artifact (latest published was 2026-05-29 03:44) ==="
-          # The publish log uploaded "2.1.0.20260529.034440-1.{pom,jar}".
-          for path in \
-            "2.1.0.SNAPSHOT/chart-parser-2.1.0.20260529.034440-1.pom" \
-            "2.1.0.SNAPSHOT/chart-parser-2.1.0.20260529.034440-1.jar"
-          do
-            url="$BASE/$path"
-            echo "--- $path ---"
-            curl -sSL -o /dev/null -w "HTTP %{http_code} type=%{content_type} size=%{size_download}\n" \
-                 $AUTH "$url" || true
-          done
+          echo "=== Cat top-level maven-metadata.xml (lists known versions) ==="
+          curl -sSL $AUTH "$BASE/maven-metadata.xml" || true
+          echo
+          echo
+          echo "=== Cat 2.1.0.SNAPSHOT 404 body (does it hint at the right URL?) ==="
+          curl -sSL $AUTH "$BASE/2.1.0.SNAPSHOT/maven-metadata.xml" || true
+          echo
+          echo
+          echo "=== Try the GitHub REST package API (needs read:packages) ==="
+          curl -sSL -w "\nHTTP %{http_code}\n" $AUTH \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/users/robinhowlett/packages/maven/com.robinhowlett.chart-parser/versions" \
+               | head -50 || true
 
       - name: Build pdf-importer (skip jOOQ codegen — sources are committed)
         run: mvn verify -Djooq.codegen.skip=true -DskipTests -B -X
