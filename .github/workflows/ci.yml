@@ -23,48 +23,8 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
-      # CI-debug 2026-05-29: probe the GH Packages URLs Maven would hit, so
-      # we can distinguish auth failures from SNAPSHOT-alias 404s. Remove
-      # once the resolution issue is understood and pinned.
-      - name: Debug GH Packages resolution
-        env:
-          GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
-          ACTOR: ${{ github.actor }}
-        run: |
-          BASE="https://maven.pkg.github.com/robinhowlett/chart-parser/com/robinhowlett/chart-parser"
-          AUTH="-u ${ACTOR}:${GH_PACKAGES_TOKEN}"
-          echo "=== Cat the settings.xml setup-java wrote ==="
-          test -f ~/.m2/settings.xml && cat ~/.m2/settings.xml || echo "NO settings.xml"
-          echo
-          for path in \
-            "2.1.0.SNAPSHOT/maven-metadata.xml" \
-            "2.1.0.SNAPSHOT/chart-parser-2.1.0.SNAPSHOT.pom" \
-            "2.1.0.SNAPSHOT/chart-parser-2.1.0.SNAPSHOT.jar" \
-            "maven-metadata.xml"
-          do
-            url="$BASE/$path"
-            echo "--- $path ---"
-            # Show status + content-type only; suppress bodies (some are large).
-            curl -sSL -o /dev/null -w "HTTP %{http_code} type=%{content_type} size=%{size_download}\n" \
-                 $AUTH "$url" || true
-          done
-          echo
-          echo "=== Cat top-level maven-metadata.xml (lists known versions) ==="
-          curl -sSL $AUTH "$BASE/maven-metadata.xml" || true
-          echo
-          echo
-          echo "=== Cat 2.1.0.SNAPSHOT 404 body (does it hint at the right URL?) ==="
-          curl -sSL $AUTH "$BASE/2.1.0.SNAPSHOT/maven-metadata.xml" || true
-          echo
-          echo
-          echo "=== Try the GitHub REST package API (needs read:packages) ==="
-          curl -sSL -w "\nHTTP %{http_code}\n" $AUTH \
-               -H "Accept: application/vnd.github+json" \
-               "https://api.github.com/users/robinhowlett/packages/maven/com.robinhowlett.chart-parser/versions" \
-               | head -50 || true
-
       - name: Build pdf-importer (skip jOOQ codegen — sources are committed)
-        run: mvn verify -Djooq.codegen.skip=true -DskipTests -B -X
+        run: mvn verify -Djooq.codegen.skip=true -DskipTests -B
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}

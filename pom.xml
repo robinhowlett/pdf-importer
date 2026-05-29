@@ -36,7 +36,7 @@
         <dependency>
             <groupId>com.robinhowlett</groupId>
             <artifactId>chart-parser</artifactId>
-            <version>2.1.0.SNAPSHOT</version>
+            <version>2.1.0.RELEASE</version>
         </dependency>
 
         <!-- jOOQ — generated from live PostgreSQL schema via jooq-codegen-maven -->
@@ -222,10 +222,15 @@
         </plugins>
     </build>
     <repositories>
+        <!-- chart-parser is published from a private repo to GitHub Packages.
+             Releases-only — GitHub Packages flattens SNAPSHOT versions to
+             per-timestamp top-level entries with no SNAPSHOT alias, which
+             breaks Maven's metadata-driven SNAPSHOT resolution. Each
+             chart-parser change downstream consumers need is cut as a
+             tagged X.Y.Z.RELEASE. -->
         <repository>
             <id>github</id>
             <url>https://maven.pkg.github.com/robinhowlett/chart-parser</url>
-            <snapshots><enabled>true</enabled></snapshots>
         </repository>
     </repositories>
 
