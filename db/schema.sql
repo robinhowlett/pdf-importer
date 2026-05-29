@@ -236,7 +236,12 @@ CREATE TABLE handycapper.exotics
   odds            decimal(10,2),
   number_correct  varchar(100),
   pool            decimal(12,2),
-  carryover       decimal(12,2)
+  carryover       decimal(12,2),
+  -- bet_type: canonical type name (EXACTA, TRIFECTA, PICK_3, ...) populated
+  -- from the parsed `name` column. pool_type: STANDARD/CONSOLATION/JACKPOT/FUTURE.
+  -- Both are read by AN1 (wagering-analytics) and race-day-sim payoff models.
+  bet_type        varchar(30),
+  pool_type       varchar(20)
 );
 CREATE UNIQUE INDEX idx_24603_primary ON handycapper.exotics (id);
 CREATE INDEX idx_24603_idx_exotics_payoff ON handycapper.exotics (payoff);
@@ -245,6 +250,8 @@ CREATE INDEX idx_24603_idx_exotics_odds ON handycapper.exotics (odds);
 CREATE INDEX idx_24603_idx_exotics_name ON handycapper.exotics (name);
 CREATE INDEX idx_24603_idx_exotics_carryover ON handycapper.exotics (carryover);
 CREATE INDEX idx_24603_idx_exotics_pool ON handycapper.exotics (pool);
+CREATE INDEX idx_exotics_bet_type ON handycapper.exotics (bet_type);
+CREATE INDEX idx_exotics_pool_type ON handycapper.exotics (pool_type);
 
 CREATE TABLE handycapper.fractionals
 (
