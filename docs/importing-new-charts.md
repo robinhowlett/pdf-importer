@@ -64,9 +64,62 @@ Fix:
    `unzip -p target/pdf-importer-1.1.0.RELEASE.jar track-codes.csv | grep URA`.
 4. Re-import the file (step 3 above).
 
-## After importing
+## Races with no Equibase PDF: `ManualEntryWriter`
 
-- 14-0's live card (`app/bc2026.json`, `live_field.py`) does not read the charts. Results only reach
-  14-0 when an exporter is re-run.
-- `performance_ratings*` are not computed by the importer. New races have no ratings until the
-  performance-rating pipeline runs over them.
+The PDF corpus starts in 1991. The 1984–1990 Breeders' Cups (7 races a year, the only 49 races in
+chartbase before 1991) were entered from DRF chart images with
+`com.robinhowlett.importer.ManualEntryWriter` (Robin, 2026-11-03). It takes one race as JSON
+(`ManualEntryWriter <enriched.json>`): track, date, conditions, distance and surface, fractions and splits,
+and the starters with their calls, margins, odds and WPS payoffs. It builds a `RaceResult` and writes it
+with the same `RaceWriter`, so the race looks like any imported one. It uses the same `IMPORTER_JDBC_URL`.
+
+The full chain:
+
+1. **DRF chart image** (Windows `~/horseracing/breederscup/` holds 421 one-page image PDFs, `310.pdf`–`730.pdf`, with no text layer).
+2. **Robin's web app** for entering and correcting the race data from the image (LLM vision plus a form),
+   which outputs an "extracted" JSON. Example: `C:\Users\robin\dev\chart-parser-test\race_310_extracted.json`.
+   The app itself wasn't found on robinpc (Windows, WSL or claude.ai artifacts, checked 2026-11-03),
+   so it's probably on the MacBook.
+3. **`ManualEntryEnricher`** (`C:\Users\robin\dev\chart-parser-test\src\main\java\ManualEntryEnricher.java`,
+   not a git repo) runs chart-parser's own services over it (track lookup, distance in feet, fraction points,
+   splits, millis) and writes the "enriched" JSON.
+4. **`ManualEntryWriter`** writes the enriched JSON to the database.
+
+Limits: flat races only; call points fixed at Start, ¼, ½, ¾, Str and Fin (feet assume a mile); no exotics,
+claims, ratings or last-raced data. Both Java files were untracked as of 2026-11-03. The writer is in the
+built JAR, so run it with
+`java -cp target/pdf-importer-1.1.0.RELEASE.jar com.robinhowlett.importer.ManualEntryWriter race.json`.
+
+## After importing: what the import does not do
+
+Parsing is fast: two full BC cards (22 races) took about 5 seconds. Everything below is separate, and
+none of it runs automatically.
+
+**1. Ratings.** The importer writes race facts only. New races have no class level and no performance
+rating until performance-rating runs over them, and that can't be done incrementally yet (checked
+2026-11-03):
+
+- `scripts/compute_class_levels.py` **drops and rebuilds** `race_class_levels`, and only for 1996–2017.
+  Running it would delete the class levels that 2018+ races (the BC days) already have.
+- `scripts/compute_ratings_v22.py` **drops `performance_ratings_v22`** at the start of any non-dry run,
+  even with `--year 2026`. On robinpc that table is empty, but on the MacBook it holds the 6,610 BC
+  ratings that 14-0's registry is built from (`docs/db-audit/README.md` in 14-0). Running it there for one
+  year would wipe the rest.
+- `project_true_talent.py` (v22 PR → `bc_true_talent`, which `export_registry.py` reads) isn't on robinpc.
+  It lives with the v22 ratings on the MacBook.
+
+So rating new races needs an incremental mode first: class levels upserted for given race ids, and v22
+deleting and re-inserting only the races it computed. The compute itself is small for a few cards; the
+runtime is mostly loading par curves and segment stats. Not measured yet.
+
+**2. 14-0.** Nothing in 14-0 reads the charts directly:
+
+- The live card (`app/bc2026.json` → `live_field.py`) is built from bookmakers' prices and the morning
+  line, not from chartbase.
+- The all-time game's ratings come from `export_registry.py` (MacBook: `bc_true_talent`, `_v22`). The
+  registry's per-division `years` don't include the live year, so a new BC year joins the all-time pool
+  only through a deliberate rebuild.
+- Adding a year to the all-time pool changes the ratings the game draws from. That's a 14-0 human gate:
+  re-run the Monte Carlos (L2) and get Robin's sign-off.
+- Race facts that need no ratings are available as soon as the import finishes: results, running styles,
+  post positions, margins, fractions (e.g. `export_registry.py --style-only`, `export_bc_margins.py`).
