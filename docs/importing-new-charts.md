@@ -99,14 +99,18 @@ none of it runs automatically.
 rating until performance-rating runs over them, and that can't be done incrementally yet (checked
 2026-11-03):
 
-- `scripts/compute_class_levels.py` **drops and rebuilds** `race_class_levels`, and only for 1996–2017.
-  Running it would delete the class levels that 2018+ races (the BC days) already have.
+- `scripts/compute_class_levels.py` **drops and rebuilds** `race_class_levels`. The GitHub version
+  (e44387e) classifies all years; robinpc's stale checkouts still have the 1996–2017-only version, which
+  would delete the 2018+ BC class levels. Pull before running anything.
 - `scripts/compute_ratings_v22.py` **drops `performance_ratings_v22`** at the start of any non-dry run,
   even with `--year 2026`. On robinpc that table is empty, but on the MacBook it holds the 6,610 BC
   ratings that 14-0's registry is built from (`docs/db-audit/README.md` in 14-0). Running it there for one
   year would wipe the rest.
-- `project_true_talent.py` (v22 PR → `bc_true_talent`, which `export_registry.py` reads) isn't on robinpc.
-  It lives with the v22 ratings on the MacBook.
+- `project_true_talent.py` (v22 PR → `bc_true_talent`, which `export_registry.py` reads) is on GitHub but
+  not in robinpc's stale checkouts. Its inputs (`performance_ratings_v22`, `ifha_rankings`, the BC-patched
+  `par_curves` and `pr_std_lookup`) exist only on the MacBook. The full recipe for BC-only years is
+  `run_bc_coverage_backfill.sh`, then `PR_STD_FROM_TABLE=1 compute_ratings_v22.py`. The plan to put it all
+  on robinpc is `14-0/docs/db-audit/one-chartbase-plan.md`.
 
 So rating new races needs an incremental mode first: class levels upserted for given race ids, and v22
 deleting and re-inserting only the races it computed. The compute itself is small for a few cards; the
